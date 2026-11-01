@@ -27,7 +27,8 @@ aether-engine/
 ├── tsconfig.base.json      # Shared strict TypeScript configuration
 ├── vitest.config.ts        # Unified testing configuration
 ├── .node-version           # Pinned Node.js version (v26.13.0)
-└── AGENTS.md               # Guidelines for contributors and AI agents
+├── AGENTS.md               # Guidelines for contributors and AI agents
+└── IMPLEMENTATION_LOG.md   # Chronological development journal & troubleshooting log
 ```
 
 ---

@@ -53,3 +53,14 @@ Welcome to the Aether Engine codebase. This document outlines the core architect
 - Work strictly within the current milestone scope.
 - Do not anticipate or pre-implement future milestones without explicit user request.
 - Keep changes concise, clean, and well-documented in `CHANGELOG.md`.
+
+---
+
+## 6. Living Implementation Log
+
+- Maintain `IMPLEMENTATION_LOG.md` at the repository root.
+- After completing a milestone, resolving non-trivial bugs, or making architectural decisions, append an entry documenting:
+  1. What features/modules were added.
+  2. What issues or unexpected behaviors were encountered.
+  3. The root cause analysis for each issue.
+  4. How the issue was resolved and architectural lessons learned.
