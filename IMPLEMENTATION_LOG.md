@@ -350,3 +350,78 @@ Correct the live **Parent Rotation** readout in the editor viewport so it cycles
 - **TypeScript Typecheck**: 0 errors across all workspaces.
 - **Production Build**: Both packages compile cleanly.
 - **Git State**: Pending commit.
+
+---
+
+## [2026-11-01] — Milestone 3: WebGL2 Batch Renderer Foundation
+
+### 1. Vision & Scope
+Create the first renderer package for Aether Engine, establishing the GPU boundary for future sprite, particle, and UI rendering workflows:
+- **`WebGLContext`**: safe canvas wrapper with viewport resizing and context-loss safeguards.
+- **`ShaderProgram`**: typed GLSL compiler/linker with attribute and uniform caching.
+- **`Camera2D`**: orthographic camera generating a view-projection matrix for world-to-screen transforms.
+- **`Texture2D` / `TextureLoader`**: texture creation and asynchronous image uploads.
+- **`SpriteBatch`**: batched sprite rendering using a single shared VAO/VBO/IBO and CPU-side quad accumulation.
+- **Public package exports** enabling editor tooling and downstream engine consumers to import `@aether/renderer` cleanly.
+
+---
+
+### 2. Features & Deliverables Added
+
+- **`packages/renderer/src/gl/WebGLContext.ts`**:
+  - Wraps `WebGL2RenderingContext` with explicit defaults (`alpha: false`, `depth: false`, `stencil: false`, `antialias: false`).
+  - Provides `resize()`, `clear()`, and `onContextLost()` hooks for renderer lifecycle upkeep.
+  - Enforces `WebGL2` availability and sets a standard alpha-blending mode suitable for 2D sprites.
+
+- **`packages/renderer/src/gl/ShaderProgram.ts`**:
+  - Compiles vertex and fragment shaders with detailed error reporting.
+  - Links and validates the compiled program.
+  - Caches attribute and uniform locations to avoid repeated GPU lookups.
+  - Provides typed `setUniformMatrix3fv()` and `setUniform1i()` helpers for render uniforms.
+
+- **`packages/renderer/src/camera/Camera2D.ts`**:
+  - Generates an orthographic projection combined with camera translation and zoom.
+  - Supports `worldToScreen()` and `screenToWorld()` conversions using the lazily rebuilt view-projection matrix.
+
+- **`packages/renderer/src/texture/Texture2D.ts`**:
+  - Stores the OpenGL texture handle and dimensions.
+  - Includes a `createWhite()` factory for solid-color quads without requiring an external texture asset.
+
+- **`packages/renderer/src/texture/TextureLoader.ts`**:
+  - Loads images asynchronously into GPU textures using `Image` and `texImage2D`.
+  - Configures filtering and wrap modes via optional parameters.
+
+- **`packages/renderer/src/batch/SpriteBatch.ts`**:
+  - Preallocates a large `Float32Array` vertex buffer and static index buffer for quads.
+  - Accumulates up to `MAX_QUADS` per batch and flushes grouped draws per texture.
+  - Transforms quad corners by a `Matrix3` world transform and uploads the data to the GPU.
+  - Handles draw-call reduction and enables a single `drawElements()` call per texture batch.
+
+- **`packages/renderer/src/index.ts`**:
+  - Re-exports the renderer surface so downstream code can use `@aether/renderer` as a complete package rather than deep-importing individual modules.
+
+- **`apps/editor/package.json`**:
+  - Adds the workspace `@aether/renderer` dependency so the editor can consume the new rendering package alongside the engine core.
+
+---
+
+### 3. Issues Encountered & How They Were Resolved
+
+#### Issue 1: `@aether/renderer` Was Not Package-Consumable
+- **Symptom**: The renderer package built its individual modules, but there was no root `src/index.ts` file, so `dist/index.js` was never generated and imports such as `@aether/renderer` failed at runtime.
+- **Root Cause**: The package manifest points at `./dist/index.js`, but the renderer source tree had no entrypoint that exported the public API.
+- **Resolution**: Added `packages/renderer/src/index.ts` and re-exported all public renderer classes, shader constants, and texture helpers. This restored the package surface and aligned the package manifest with the emitted build output.
+
+#### Issue 2: Vite Tooling Was Split Across Workspace Root and App Folder
+- **Symptom**: After installing workspace dependencies, `vite build` failed with a TypeScript error about incompatible `vite` plugin types coming from two different installs of Vite (`node_modules/vite` vs `apps/editor/node_modules/vite`).
+- **Root Cause**: `vite` and `@vitejs/plugin-react` were present in both the monorepo root and the editor workspace, creating a duplicate dependency graph and conflicting TypeScript definitions.
+- **Resolution**: Centralized the Vite toolchain in the monorepo root and removed the duplicate workspace-local copies from `apps/editor/package.json`. Re-running `npm install` and `npm run build` resolved the incompatibility.
+
+---
+
+### 4. Current Status & Verification
+- **Unit Tests**: 53 / 53 tests passing across 7 files.
+- **TypeScript Typecheck**: 0 errors across all workspaces.
+- **Production Build**: All workspaces compile successfully, including the newly exported `@aether/renderer` package.
+- **Git State**: Ready for the next milestone: scene graph + entity hierarchy integration.
+

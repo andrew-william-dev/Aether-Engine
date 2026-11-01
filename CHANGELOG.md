@@ -37,6 +37,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Attached `DomInputAdapter` to engine input runtime.
   - Live input diagnostics in the editor viewport showing active mouse coordinates and currently held keys in real-time.
   - Live `Transform2D` hierarchy diagnostic in viewport showing parent rotation and child world position.
+- **WebGL2 Renderer Foundation (`packages/renderer`)**:
+  - `WebGLContext`: safe WebGL2 canvas wrapper with viewport resizing, context-loss hooks, and color clearing.
+  - `ShaderProgram`: compiled/linked GLSL program wrapper with attribute and uniform caching.
+  - `Camera2D`: orthographic view-projection matrix generation for world-to-screen transforms.
+  - `Texture2D` and `TextureLoader`: GPU texture creation and image uploads for sprite assets.
+  - `SpriteBatch`: CPU-side quad batching system with a shared VAO/VBO/IBO and draw-call aggregation.
+  - Package-level exports via `@aether/renderer` and workspace integration into the editor application.
 - **Testing**:
   - Expanded test suite to 53 unit tests across 7 test files (engine lifecycle, game loop, input, math utilities, Vector2, Matrix3, Transform2D).
 

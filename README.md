@@ -121,7 +121,7 @@ npm run typecheck
 
 - [x] **Milestone 1**: Monorepo Setup, Engine Lifecycle, Game Loop & Input System (npm workspaces, engine-core, React editor, Vitest, strict TypeScript).
 - [x] **Milestone 2**: 2D Math Primitives & Transform System (MathUtils, Vector2, Matrix3, Transform2D with dirty-flag hierarchy caching).
-- [ ] **Milestone 3**: WebGL2 Batch Renderer (Shaders, textures, quad batching, 2D camera).
+- [x] **Milestone 3**: WebGL2 Batch Renderer (Shaders, textures, quad batching, 2D camera).
 - [ ] **Milestone 4**: Scene Graph & Entity Hierarchy.
 - [ ] **Milestone 5**: Editor Canvas & Interactive Tooling (Hierarchy, Inspector, Play/Pause).
 - [ ] **Milestone 6**: Electron Desktop Application Packaging.
