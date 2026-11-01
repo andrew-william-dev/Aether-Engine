@@ -311,3 +311,42 @@ All four modules are strictly unit-tested and are free of any DOM, React, or pla
 - **TypeScript Typecheck**: 0 errors across all workspaces.
 - **Production Build**: Both `@aether/editor` and `@aether/engine-core` compile cleanly with zero warnings.
 - **Git State**: Committed to `main` branch.
+
+---
+
+## [2026-11-01] — Bug Fix: Parent Rotation Display Overflow in Editor
+
+### 1. Vision & Scope
+Correct the live **Parent Rotation** readout in the editor viewport so it cycles cleanly between `0°` and `359°` instead of accumulating unbounded values like `2547°`.
+
+---
+
+### 2. Files Changed
+
+- **`apps/editor/src/App.tsx`**: Applied display-only degree normalization to the Parent Rotation readout.
+
+---
+
+### 3. Issues Encountered & How They Were Resolved
+
+#### Issue 1: Rotation Display Climbing Past 360°
+- **Symptom**: The Parent Rotation value in the editor viewport kept climbing indefinitely (e.g. `2547°`) instead of wrapping around after `359°`.
+- **Root Cause**: `Transform2D.rotate(dt * 1.5)` is called every frame, continuously accumulating radians into `parentTransform.rotation`. The underlying value is intentionally unbounded — rotation math works correctly with any radian value. However, the display conversion (`rotation * 180 / Math.PI`) had no wrapping applied, so the degree value climbed forever.
+- **Resolution**: Applied a display-only modulo wrap directly in the JSX expression:
+  ```tsx
+  // Before
+  {(parentTransform.rotation * 180 / Math.PI).toFixed(0)}°
+
+  // After
+  {((((parentTransform.rotation * 180 / Math.PI) % 360) + 360) % 360).toFixed(0)}°
+  ```
+  The formula `((deg % 360) + 360) % 360` correctly handles both positive overflow and negative accumulated values, always yielding a result in `[0, 360)`.
+- **Lesson**: The `Transform2D` rotation property intentionally stores an unbounded radian accumulator — normalizing it on every mutation would add cost and could break future interpolation logic. Always normalize rotation **at the display or sampling boundary**, not at the storage layer.
+
+---
+
+### 4. Current Status & Verification
+- **Unit Tests**: 53 / 53 tests passing across 7 test files (no new tests required — display-only change).
+- **TypeScript Typecheck**: 0 errors across all workspaces.
+- **Production Build**: Both packages compile cleanly.
+- **Git State**: Pending commit.

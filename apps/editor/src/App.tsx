@@ -280,7 +280,7 @@ export const App: React.FC = () => {
                 Transform2D Hierarchy & Matrix3 (Active):
               </div>
               <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>
-                Parent Rotation: <span style={{ color: 'var(--text-main)', fontFamily: 'monospace' }}>{(parentTransform.rotation * 180 / Math.PI).toFixed(0)}°</span>
+                Parent Rotation: <span style={{ color: 'var(--text-main)', fontFamily: 'monospace' }}>{((((parentTransform.rotation * 180 / Math.PI) % 360) + 360) % 360).toFixed(0)}°</span>
               </div>
               <div style={{ color: 'var(--text-muted)' }}>
                 Orbiting Child World Pos: <span style={{ color: 'var(--text-main)', fontFamily: 'monospace' }}>({childWorldPos.x}, {childWorldPos.y})</span>
