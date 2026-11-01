@@ -29,6 +29,9 @@ export class Engine {
   }
 
   init(): void {
+    if (this._state === 'initialized') {
+      return;
+    }
     if (this._state !== 'uninitialized' && this._state !== 'stopped') {
       throw new Error(`Cannot initialize engine in state: ${this._state}`);
     }
@@ -57,6 +60,11 @@ export class Engine {
 
   stop(): void {
     this._state = 'stopped';
+  }
+
+  destroy(): void {
+    this._state = 'stopped';
+    this._frameCount = 0;
   }
 
   /**

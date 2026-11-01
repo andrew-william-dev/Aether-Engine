@@ -7,7 +7,9 @@ export const App: React.FC = () => {
   const [sampleVector] = useState(() => new Vector2(100, 200));
 
   useEffect(() => {
-    engine.init();
+    if (engine.state === 'uninitialized' || engine.state === 'stopped') {
+      engine.init();
+    }
     setEngineState(engine.state);
   }, [engine]);
 

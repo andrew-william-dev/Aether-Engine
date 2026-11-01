@@ -28,6 +28,19 @@ describe('Engine Core', () => {
     expect(engine.state).toBe('stopped');
   });
 
+  it('handles idempotent initialization and destruction safely', () => {
+    const engine = new Engine();
+    engine.init();
+    expect(engine.state).toBe('initialized');
+
+    // Calling init again when already initialized should safely no-op
+    expect(() => engine.init()).not.toThrow();
+    expect(engine.state).toBe('initialized');
+
+    engine.destroy();
+    expect(engine.state).toBe('stopped');
+  });
+
   it('increments frame count during running steps', () => {
     const engine = new Engine();
     engine.start();
