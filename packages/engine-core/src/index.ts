@@ -1,3 +1,4 @@
 export * from './version';
 export * from './math';
 export * from './core';
+export * from './input';

@@ -38,6 +38,7 @@ export class GameLoop {
 
   private readonly _updateCallbacks = new Set<UpdateCallback>();
   private readonly _renderCallbacks = new Set<RenderCallback>();
+  private readonly _postTickCallbacks = new Set<() => void>();
 
   constructor(config: GameLoopConfig = {}) {
     this._scheduler = config.scheduler ?? new AutoFrameScheduler();
@@ -89,6 +90,19 @@ export class GameLoop {
     this._renderCallbacks.add(callback);
     return () => {
       this._renderCallbacks.delete(callback);
+    };
+  }
+
+  /**
+   * Registers a callback invoked after the update and render phases of each frame.
+   * Useful for internal subsystems (e.g. input) to clear frame-local transitions.
+   * @param callback Function to execute.
+   * @returns Unsubscribe function.
+   */
+  public onPostTick(callback: () => void): () => void {
+    this._postTickCallbacks.add(callback);
+    return () => {
+      this._postTickCallbacks.delete(callback);
     };
   }
 
@@ -189,6 +203,12 @@ export class GameLoop {
     for (const callback of renders) {
       callback(1.0);
     }
+
+    // Execute post-tick callbacks (e.g. input frame reset)
+    const postTicks = Array.from(this._postTickCallbacks);
+    for (const callback of postTicks) {
+      callback();
+    }
   }
 
   /**
@@ -209,6 +229,11 @@ export class GameLoop {
     for (const callback of renders) {
       callback(1.0);
     }
+
+    const postTicks = Array.from(this._postTickCallbacks);
+    for (const callback of postTicks) {
+      callback();
+    }
   }
 
   /**
@@ -218,5 +243,6 @@ export class GameLoop {
     this.stop();
     this._updateCallbacks.clear();
     this._renderCallbacks.clear();
+    this._postTickCallbacks.clear();
   }
 }

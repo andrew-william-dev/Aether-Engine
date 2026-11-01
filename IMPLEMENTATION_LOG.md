@@ -144,8 +144,93 @@ Implement a robust, platform-agnostic engine lifecycle state machine and game lo
 
 ---
 
-### 4. Current Status & Verification
+### 4. Status & Verification
 - **Unit Tests**: 18 / 18 tests passing across 3 test files.
 - **TypeScript Typecheck**: 0 errors across all workspaces.
 - **Production Build**: Both packages compile cleanly with zero errors.
+- **Git State**: Clean working tree committed to `main` branch.
+
+---
+
+## [2026-11-01] — Milestone 1 (Continued): Platform-Independent Input System
+
+### 1. Vision & Scope
+Implement an input subsystem inside `packages/engine-core` that:
+- Supports keyboard and mouse state tracking (down/held, pressed this frame, released this frame, up).
+- Tracks mouse position, relative movement deltas, and wheel scrolling.
+- Maintains zero DOM dependencies in `engine-core` while providing an adapter bridge (`DomInputAdapter`) for browser/editor environments.
+- Automatically synchronizes frame transitions with `GameLoop` and clears inputs safely on reset or window blur.
+
+---
+
+### 2. Features & Deliverables Added
+
+- **Input Types & Constants (`packages/engine-core/src/input/types.ts`)**:
+  - `Keys`: Standard key code constants (`KeyW`, `Space`, `ArrowUp`, etc.) matching `KeyboardEvent.code`.
+  - `MouseButton` enum: `Left` (0), `Middle` (1), `Right` (2), `Back` (3), `Forward` (4).
+  - `InputEventReceiver`: Interface implemented by `InputManager` to receive external raw events.
+  - `InputAdapter`: Interface for platform-specific event bridges.
+
+- **Input Manager (`packages/engine-core/src/input/input-manager.ts`)**:
+  - Independent state tracking for held keys, keys pressed this frame, and keys released this frame.
+  - Mouse button tracking (down, pressed, released, up).
+  - Mouse position vector, frame movement delta vector, and wheel delta vector.
+  - `endFrame()`: Clears frame-local transitions (`pressedKeys`, `releasedKeys`, mouse deltas).
+  - `reset()`: Completely clears all held and transition states to prevent stuck inputs.
+
+- **DOM Input Adapter (`packages/engine-core/src/input/dom-adapter.ts`)**:
+  - Attaches to standard DOM event targets (`window`, `document`, or specific `<canvas>`).
+  - Converts browser `keydown`, `keyup`, `mousedown`, `mouseup`, `mousemove`, and `wheel` events to engine events.
+  - Automatically translates mouse client coordinates to element-relative canvas coordinates via `getBoundingClientRect()`.
+  - Automatically resets input state on window `blur` (e.g. user Alt-Tabs or focuses another application).
+
+- **GameLoop Post-Tick Hook (`packages/engine-core/src/core/loop.ts`)**:
+  - Added `onPostTick(callback)` to `GameLoop`.
+  - Dispatched at the conclusion of both `tick()` and `step()`, allowing `Engine` to automatically call `input.endFrame()` after all updates and renders complete.
+
+- **Engine Integration (`packages/engine-core/src/core/engine.ts`)**:
+  - Added `engine.input: InputManager`.
+  - Automatically calls `input.reset()` on `pause()`, `stop()`, and `dispose()`.
+
+- **Editor Integration (`apps/editor/src/App.tsx`)**:
+  - Attached `DomInputAdapter` to the engine.
+  - Added live input diagnostics in the central editor viewport, displaying mouse coordinates and currently held key badges in real-time.
+
+- **Unit Tests (`packages/engine-core/tests/input.test.ts`)**:
+  - Added 9 unit tests (total 27 tests).
+  - Tested:
+    1. Key state transitions across multiple frames (down, pressed, released, up).
+    2. Rapid single-frame key tap preservation (both pressed and released in same frame).
+    3. OS key repeat suppression while key is held down.
+    4. Mouse button states (down, pressed, released).
+    5. Mouse coordinates, frame movement deltas, and wheel scrolling.
+    6. Safe reset on `reset()`.
+    7. `DomInputAdapter` event mapping and coordinate translation with mock DOM target.
+    8. Engine loop frame transition cleanup and pause/stop reset.
+
+---
+
+### 3. Issues Encountered & How They Were Resolved
+
+#### Issue 1: Key Repeat Flooding "Just Pressed" State
+- **Symptom**: In OS keyboard settings, holding down a key fires repeated `keydown` events every few milliseconds. If unchecked, this would cause `isKeyPressed` to trigger repeatedly as if the user was spamming the key.
+- **Root Cause**: `feedKeyDown` was invoked repeatedly by the browser for a key that was already down.
+- **Resolution**: In `InputManager.feedKeyDown`, check `if (!this._heldKeys.has(key))`. The key is only added to `_pressedKeys` if it was not already held down.
+
+#### Issue 2: Stuck Keys on Application Blur / Tab Switching
+- **Symptom**: If a player holds `KeyW` and presses `Alt-Tab` to switch windows, the browser never delivers the `keyup` event, leaving the character walking forever.
+- **Root Cause**: The `keyup` event is dropped when the window loses focus.
+- **Resolution**: Added a `window.onblur` listener inside `DomInputAdapter` that invokes `receiver.reset()`, clearing all held keys and mouse buttons when the window loses focus.
+
+#### Issue 3: Viewport Offset Coordinates
+- **Symptom**: When embedding a game canvas in an editor with sidebars, `e.clientX` / `e.clientY` gives window-relative coordinates rather than canvas-relative coordinates.
+- **Root Cause**: Browser mouse events are reported relative to the browser viewport.
+- **Resolution**: In `DomInputAdapter`, if the target provides `getBoundingClientRect()`, the adapter subtracts `rect.left` and `rect.top` to provide precise local coordinates `(0, 0)` at the canvas top-left.
+
+---
+
+### 4. Current Status & Verification
+- **Unit Tests**: 27 / 27 tests passing across 4 test files.
+- **TypeScript Typecheck**: 0 errors across all workspaces.
+- **Production Build**: Both `@aether/editor` and `@aether/engine-core` compile cleanly.
 - **Git State**: Ready to commit.

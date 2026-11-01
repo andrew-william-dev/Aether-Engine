@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ENGINE_NAME, ENGINE_VERSION, Engine, Vector2 } from '@aether/engine-core';
+import { DomInputAdapter, ENGINE_NAME, ENGINE_VERSION, Engine, Vector2 } from '@aether/engine-core';
 
 export const App: React.FC = () => {
   const [engine] = useState(() => new Engine({ name: 'Aether Editor Runtime' }));
@@ -7,6 +7,8 @@ export const App: React.FC = () => {
   const [frameCount, setFrameCount] = useState(0);
   const [deltaTime, setDeltaTime] = useState(0);
   const [fps, setFps] = useState(0);
+  const [heldKeys, setHeldKeys] = useState<string[]>([]);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [sampleVector] = useState(() => new Vector2(100, 200));
 
   useEffect(() => {
@@ -15,15 +17,22 @@ export const App: React.FC = () => {
     }
     setEngineState(engine.state);
 
+    // Attach DOM input adapter to feed user keystrokes and mouse movements to the engine
+    const adapter = new DomInputAdapter();
+    adapter.attach(engine.input);
+
     // Update editor stats on each frame tick
     const unsub = engine.onUpdate((dt) => {
       setFrameCount(engine.frameCount);
       setDeltaTime(dt);
       setFps(engine.fps);
+      setHeldKeys(engine.input.getHeldKeys());
+      setMousePos({ x: Math.round(engine.input.mouseX), y: Math.round(engine.input.mouseY) });
     });
 
     return () => {
       unsub();
+      adapter.detach();
       if (engine.state === 'running') {
         engine.pause();
       }
@@ -193,9 +202,52 @@ export const App: React.FC = () => {
                 borderRadius: '6px',
                 display: 'inline-block',
                 fontFamily: 'monospace',
+                marginBottom: '12px',
               }}
             >
               Engine-Core Test Vector: ({sampleVector.x}, {sampleVector.y})
+            </div>
+
+            {/* Live Input Diagnostic Box */}
+            <div
+              style={{
+                padding: '12px',
+                backgroundColor: 'var(--bg-tertiary)',
+                borderRadius: '6px',
+                border: '1px solid var(--border-color)',
+                textAlign: 'left',
+                fontSize: '12px',
+              }}
+            >
+              <div style={{ fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                Input System Diagnostics (Active):
+              </div>
+              <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>
+                Mouse Position: <span style={{ color: 'var(--text-main)', fontFamily: 'monospace' }}>({mousePos.x}, {mousePos.y})</span>
+              </div>
+              <div style={{ color: 'var(--text-muted)' }}>
+                Held Keys:{' '}
+                {heldKeys.length > 0 ? (
+                  heldKeys.map((k) => (
+                    <span
+                      key={k}
+                      style={{
+                        padding: '2px 6px',
+                        backgroundColor: 'var(--accent-color)',
+                        color: '#fff',
+                        borderRadius: '3px',
+                        marginRight: '4px',
+                        fontFamily: 'monospace',
+                        fontSize: '11px',
+                      }}
+                    >
+                      {k}
+                    </span>
+                  ))
+                ) : (
+                  <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>None (press any key)</span>
+                )}
+              </div>
             </div>
           </div>
         </main>

@@ -1,3 +1,4 @@
+import { InputManager } from '../input/input-manager';
 import { GameLoop, RenderCallback, UpdateCallback } from './loop';
 import { FrameScheduler } from './scheduler';
 
@@ -24,6 +25,10 @@ export interface EngineConfig {
    * Custom frame scheduler for testing or specialized environments.
    */
   scheduler?: FrameScheduler;
+  /**
+   * Custom input manager instance (defaults to new InputManager()).
+   */
+  input?: InputManager;
 }
 
 export type EngineState = 'uninitialized' | 'initialized' | 'running' | 'paused' | 'stopped' | 'disposed';
@@ -38,16 +43,31 @@ export class Engine {
 
   private _state: EngineState = 'uninitialized';
   private readonly _loop: GameLoop;
+  private readonly _input: InputManager;
 
   constructor(config: EngineConfig = {}) {
     this.name = config.name ?? 'Aether Engine Instance';
     this.targetFps = config.targetFps ?? 60;
     this.fixedDeltaTime = config.fixedDeltaTime ?? 1 / 60;
 
+    this._input = config.input ?? new InputManager();
+
     this._loop = new GameLoop({
       scheduler: config.scheduler,
       maxDeltaTime: config.maxDeltaTime,
     });
+
+    // Reset input frame-local transitions at the conclusion of each frame tick
+    this._loop.onPostTick(() => {
+      this._input.endFrame();
+    });
+  }
+
+  /**
+   * Input manager for querying keyboard and mouse states.
+   */
+  public get input(): InputManager {
+    return this._input;
   }
 
   /**
@@ -147,6 +167,7 @@ export class Engine {
 
     this._state = 'paused';
     this._loop.stop();
+    this._input.reset();
   }
 
   /**
@@ -176,6 +197,7 @@ export class Engine {
 
     this._state = 'stopped';
     this._loop.stop();
+    this._input.reset();
   }
 
   /**
@@ -192,6 +214,7 @@ export class Engine {
     }
 
     this._loop.dispose();
+    this._input.reset();
     this._state = 'disposed';
   }
 

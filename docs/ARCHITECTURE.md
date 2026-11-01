@@ -169,3 +169,53 @@ classDiagram
 
 - **`AutoFrameScheduler`**: Used in runtime applications. Automatically uses browser `requestAnimationFrame` when present, or `setTimeout(..., 16)` and `performance.now()` in headless Node.js.
 - **`ManualFrameScheduler`**: Used in unit tests. Steps simulated time forward instantly with `advance(ms)`, flushing frame callbacks synchronously for 100% deterministic tests.
+
+---
+
+## 5. Input System Architecture & Event Flow
+
+The input system decouples the hardware/browser event sources from the engine's queryable state.
+
+```mermaid
+flowchart TD
+    subgraph Browser ["Platform / DOM"]
+        DOMEvents["DOM Events<br/>(keydown, keyup, mousemove, mousedown, mouseup, wheel)"]
+    end
+
+    subgraph Adapter ["Platform Adapter"]
+        DomAdapter["DomInputAdapter<br/>(Maps DOM events, translates clientX/Y to canvas-local coordinates)"]
+    end
+
+    subgraph CoreInput ["@aether/engine-core Input"]
+        InputMgr["InputManager<br/>(Tracks held, pressed, and released states)"]
+        FrameSync["GameLoop onPostTick<br/>(Calls input.endFrame at frame conclusion)"]
+    end
+
+    subgraph GameLogic ["Engine Users / Systems"]
+        Logic["Game Logic / Scripts<br/>input.isKeyDown('KeyW')<br/>input.isKeyPressed('Space')<br/>input.isMouseButtonDown(0)"]
+    end
+
+    DOMEvents -->|"raw events"| DomAdapter
+    DomAdapter -->|"feedKeyDown, feedMouseMove, etc."| InputMgr
+    InputMgr -->|"queried by"| Logic
+    FrameSync -->|"clears single-frame transitions"| InputMgr
+```
+
+### Key State Definitions:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Up : Initial / Released
+    Up --> Pressed : feedKeyDown()
+    note right of Pressed : isKeyPressed() = true<br/>isKeyDown() = true (Frame N)
+    
+    Pressed --> Held : endFrame()
+    note right of Held : isKeyPressed() = false<br/>isKeyDown() = true (Frame N+1 onwards)
+    
+    Held --> Released : feedKeyUp()
+    Pressed --> Released : feedKeyUp() [rapid tap]
+    note right of Released : isKeyReleased() = true<br/>isKeyDown() = false (Frame N)
+    
+    Released --> Up : endFrame()
+    note right of Up : isKeyReleased() = false<br/>isKeyDown() = false (Frame N+1 onwards)
+```
