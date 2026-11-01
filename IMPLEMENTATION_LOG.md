@@ -80,8 +80,72 @@ Establish an independent, beginner-friendly 2D game engine monorepo with:
 
 ---
 
-### 4. Current Status & Verification
+### 4. Status & Verification
 - **Unit Tests**: 9 / 9 tests passing across 2 test files.
 - **TypeScript Typecheck**: 0 errors across all workspaces.
 - **Production Build**: Both `@aether/editor` and `@aether/engine-core` compile with zero warnings or errors.
 - **Git State**: Clean working tree committed to `main` branch.
+
+---
+
+## [2026-11-01] — Milestone 1 (Continued): Engine Lifecycle & Game Loop
+
+### 1. Vision & Scope
+Implement a robust, platform-agnostic engine lifecycle state machine and game loop in `packages/engine-core`:
+- Full lifecycle states (`uninitialized`, `initialized`, `running`, `paused`, `stopped`, `disposed`).
+- Decoupled `GameLoop` with distinct update and render callback phases.
+- Pluggable frame scheduler abstraction (`FrameScheduler`, `AutoFrameScheduler`, `ManualFrameScheduler`) enabling deterministic headless testing in Node without DOM or timers.
+- Guard against concurrent loops and frame time spikes.
+
+---
+
+### 2. Features & Deliverables Added
+
+- **Frame Scheduler Abstraction (`packages/engine-core/src/core/scheduler.ts`)**:
+  - `FrameScheduler` interface defining `requestFrame`, `cancelFrame`, and `now`.
+  - `AutoFrameScheduler`: Platform-agnostic scheduler using `requestAnimationFrame` if available in global scope, falling back to `setTimeout(1000/60)` in headless Node.js.
+  - `ManualFrameScheduler`: Deterministic scheduler for unit tests. Allows tests to advance simulated time (`advance(ms)`, `advanceTo(ms)`) and flush queued frames synchronously.
+
+- **Game Loop (`packages/engine-core/src/core/loop.ts`)**:
+  - Tracks `deltaTime`, `totalTime`, `frameCount`, and smoothed `fps`.
+  - Enforces `maxDeltaTime` clamping (default 0.25s) to prevent large jumps when backgrounded or debugging.
+  - Dispatches to `onUpdate(deltaTime)` and `onRender(interpolation)` subscribers.
+  - Returns unsubscribe functions for clean listener removal.
+  - Proper frame cancellation upon stopping, pausing, or disposing.
+  - Timing baseline reset (`resetTiming()`) on resume so paused time is not counted toward delta time.
+
+- **Engine Lifecycle (`packages/engine-core/src/core/engine.ts`)**:
+  - Lifecycle state machine: `init()`, `start()`, `pause()`, `resume()`, `stop()`, and `dispose()`.
+  - Disposable protection: accessing lifecycle methods on a disposed engine throws descriptive errors.
+  - Concurrency guard: multiple calls to `start()` do not spawn duplicate loops.
+  - Manual stepping support (`step(manualDeltaTime)`) for frame-by-frame debugging or turn-based testing.
+
+- **Editor UI Integration (`apps/editor/src/App.tsx`)**:
+  - Subscribed to engine `onUpdate` to stream live metrics (State, Frame count, Delta time, FPS) in the status bar.
+  - Added "Step Frame" button to step simulation frame-by-frame when paused.
+
+- **Unit Tests (`packages/engine-core/tests/loop.test.ts`, `packages/engine-core/tests/engine.test.ts`)**:
+  - Added 9 new unit tests (total 18 tests).
+  - Tested deterministic frame progression, delta time clamping, duplicate loop prevention, cancellation on stop, and lifecycle error handling.
+
+---
+
+### 3. Issues Encountered & How They Were Resolved
+
+#### Issue 1: Platform Coupling of `requestAnimationFrame` in Node Test Environment
+- **Symptom**: Node.js does not have native `requestAnimationFrame` or `cancelAnimationFrame` in global scope.
+- **Root Cause**: Hardcoding browser-specific window APIs inside `engine-core` breaks headless testing and violates the architectural boundary in `AGENTS.md`.
+- **Resolution**: Introduced the `FrameScheduler` interface. `AutoFrameScheduler` automatically falls back to `setTimeout(..., 16)` and `performance.now()`, while `ManualFrameScheduler` allows unit tests to step frames with zero real-world delays.
+
+#### Issue 2: Delta Time Jump After Resuming from Pause
+- **Symptom**: Pausing the engine for 5 seconds and resuming caused the next frame's `deltaTime` to be measured as 5 seconds, resulting in erratic jumps.
+- **Root Cause**: `lastTimestampMs` recorded before pausing was compared against current time after resuming.
+- **Resolution**: Added `loop.resetTiming()` called during `engine.resume()`. This resets the baseline timestamp to the moment of resumption, ensuring `deltaTime` reflects only the active frame.
+
+---
+
+### 4. Current Status & Verification
+- **Unit Tests**: 18 / 18 tests passing across 3 test files.
+- **TypeScript Typecheck**: 0 errors across all workspaces.
+- **Production Build**: Both packages compile cleanly with zero errors.
+- **Git State**: Ready to commit.

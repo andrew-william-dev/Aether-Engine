@@ -4,6 +4,9 @@ import { ENGINE_NAME, ENGINE_VERSION, Engine, Vector2 } from '@aether/engine-cor
 export const App: React.FC = () => {
   const [engine] = useState(() => new Engine({ name: 'Aether Editor Runtime' }));
   const [engineState, setEngineState] = useState(engine.state);
+  const [frameCount, setFrameCount] = useState(0);
+  const [deltaTime, setDeltaTime] = useState(0);
+  const [fps, setFps] = useState(0);
   const [sampleVector] = useState(() => new Vector2(100, 200));
 
   useEffect(() => {
@@ -11,6 +14,20 @@ export const App: React.FC = () => {
       engine.init();
     }
     setEngineState(engine.state);
+
+    // Update editor stats on each frame tick
+    const unsub = engine.onUpdate((dt) => {
+      setFrameCount(engine.frameCount);
+      setDeltaTime(dt);
+      setFps(engine.fps);
+    });
+
+    return () => {
+      unsub();
+      if (engine.state === 'running') {
+        engine.pause();
+      }
+    };
   }, [engine]);
 
   const toggleRun = () => {
@@ -20,6 +37,14 @@ export const App: React.FC = () => {
       engine.start();
     }
     setEngineState(engine.state);
+  };
+
+  const handleStep = () => {
+    engine.step();
+    setEngineState(engine.state);
+    setFrameCount(engine.frameCount);
+    setDeltaTime(engine.deltaTime);
+    setFps(engine.fps);
   };
 
   return (
@@ -69,6 +94,23 @@ export const App: React.FC = () => {
             }}
           >
             {engineState === 'running' ? 'Pause' : 'Play'}
+          </button>
+          <button
+            onClick={handleStep}
+            disabled={engineState === 'running'}
+            style={{
+              padding: '6px 12px',
+              backgroundColor: 'var(--bg-tertiary)',
+              color: engineState === 'running' ? 'var(--text-muted)' : 'var(--text-main)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '4px',
+              cursor: engineState === 'running' ? 'not-allowed' : 'pointer',
+              fontWeight: 500,
+              fontSize: '13px',
+              opacity: engineState === 'running' ? 0.5 : 1,
+            }}
+          >
+            Step Frame
           </button>
           <span
             style={{
@@ -200,8 +242,13 @@ export const App: React.FC = () => {
           justifyContent: 'space-between',
         }}
       >
+        <div style={{ display: 'flex', gap: '16px' }}>
+          <span>State: <strong style={{ color: 'var(--text-main)' }}>{engineState}</strong></span>
+          <span>Frames: <strong style={{ color: 'var(--text-main)' }}>{frameCount}</strong></span>
+          <span>Delta: <strong style={{ color: 'var(--text-main)' }}>{(deltaTime * 1000).toFixed(1)} ms</strong></span>
+          <span>FPS: <strong style={{ color: 'var(--text-main)' }}>{fps}</strong></span>
+        </div>
         <span>Engine Core: Linked (@aether/engine-core)</span>
-        <span>Status: Ready</span>
       </footer>
     </div>
   );
