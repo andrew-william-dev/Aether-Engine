@@ -23,12 +23,54 @@ aether-engine/
 │   └── editor/             # React + Vite visual editor application
 ├── packages/
 │   └── engine-core/        # Pure TypeScript 2D engine runtime
+├── docs/
+│   └── ARCHITECTURE.md     # Detailed architecture specifications & diagrams
 ├── package.json            # Root workspace config & unified scripts
 ├── tsconfig.base.json      # Shared strict TypeScript configuration
 ├── vitest.config.ts        # Unified testing configuration
 ├── .node-version           # Pinned Node.js version (v26.13.0)
 ├── AGENTS.md               # Guidelines for contributors and AI agents
 └── IMPLEMENTATION_LOG.md   # Chronological development journal & troubleshooting log
+```
+
+```mermaid
+graph TD
+    subgraph Apps ["Applications"]
+        Editor["apps/editor<br/>(React + Vite)"]
+        Desktop["apps/desktop<br/>(Electron - Future)"]
+    end
+
+    subgraph Core ["Engine Core"]
+        EngineCore["@aether/engine-core<br/>(Headless 2D Engine Runtime)"]
+    end
+
+    Editor --> EngineCore
+    Desktop -.-> Editor
+```
+
+For full details, state machine diagrams, and game loop sequence diagrams, see [**docs/ARCHITECTURE.md**](docs/ARCHITECTURE.md).
+
+### Engine Lifecycle State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> uninitialized
+    uninitialized --> initialized : init()
+    uninitialized --> running : start() [auto-inits]
+    initialized --> running : start()
+    running --> paused : pause()
+    paused --> running : resume()
+    running --> stopped : stop()
+    paused --> stopped : stop()
+    stopped --> initialized : init()
+    stopped --> running : start()
+    
+    uninitialized --> disposed : dispose()
+    initialized --> disposed : dispose()
+    running --> disposed : dispose()
+    paused --> disposed : dispose()
+    stopped --> disposed : dispose()
+    disposed --> [*]
 ```
 
 ---
