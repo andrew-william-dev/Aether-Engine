@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DomInputAdapter, ENGINE_NAME, ENGINE_VERSION, Engine, Transform2D, Vector2 } from '@aether/engine-core';
+import { Camera2D, SpriteBatch, WebGLContext } from '@aether/renderer';
 
 export const App: React.FC = () => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [engine] = useState(() => new Engine({ name: 'Aether Editor Runtime' }));
   const [engineState, setEngineState] = useState(engine.state);
   const [frameCount, setFrameCount] = useState(0);
@@ -30,6 +32,32 @@ export const App: React.FC = () => {
     const adapter = new DomInputAdapter();
     adapter.attach(engine.input);
 
+    const canvas = canvasRef.current;
+    let renderer: { context: WebGLContext; camera: Camera2D; batch: SpriteBatch } | null = null;
+    let resizeRenderer: (() => void) | null = null;
+
+    if (canvas) {
+      const context = new WebGLContext(canvas);
+      const camera = new Camera2D(canvas.width || 800, canvas.height || 600);
+      const batch = new SpriteBatch(context);
+
+      resizeRenderer = () => {
+        const rect = canvas.getBoundingClientRect();
+        const pixelRatio = window.devicePixelRatio || 1;
+        const width = Math.max(1, Math.floor(rect.width * pixelRatio));
+        const height = Math.max(1, Math.floor(rect.height * pixelRatio));
+
+        canvas.width = width;
+        canvas.height = height;
+        context.resize(width, height);
+        camera.setViewport(width, height);
+      };
+
+      resizeRenderer();
+      window.addEventListener('resize', resizeRenderer);
+      renderer = { context, camera, batch };
+    }
+
     // Update editor stats on each frame tick
     const unsub = engine.onUpdate((dt) => {
       setFrameCount(engine.frameCount);
@@ -44,9 +72,32 @@ export const App: React.FC = () => {
       setChildWorldPos({ x: worldPos.x.toFixed(1), y: worldPos.y.toFixed(1) });
     });
 
+    const unsubRender = engine.onRender(() => {
+      if (!renderer) {
+        return;
+      }
+
+      const { context, camera, batch } = renderer;
+      context.clear(0.08, 0.1, 0.16, 1);
+      batch.begin(camera.getViewProjectionMatrix());
+
+      const t = engine.totalTime;
+      batch.drawRect(-160 + Math.sin(t * 1.25) * 90, -90, 120, 120, [0.28, 0.58, 1.0, 1]);
+      batch.drawRect(75 + Math.cos(t * 1.4) * 70, 20, 90, 90, [0.93, 0.45, 0.68, 1]);
+      batch.drawRect(Math.sin(t * 0.8) * 180, -40, 80, 80, [0.42, 0.77, 0.52, 1]);
+      batch.end();
+    });
+
     return () => {
       unsub();
+      unsubRender();
       adapter.detach();
+      if (resizeRenderer) {
+        window.removeEventListener('resize', resizeRenderer);
+      }
+      if (renderer) {
+        renderer.batch.dispose(renderer.context);
+      }
       if (engine.state === 'running') {
         engine.pause();
       }
@@ -188,103 +239,61 @@ export const App: React.FC = () => {
             flex: 1,
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
             backgroundColor: 'var(--bg-primary)',
             position: 'relative',
+            minWidth: 0,
           }}
         >
+          <canvas
+            ref={canvasRef}
+            style={{
+              flex: 1,
+              width: '100%',
+              height: '100%',
+              display: 'block',
+              background: 'radial-gradient(circle at center, rgba(59, 130, 246, 0.18), rgba(5, 9, 18, 0.96) 38%)',
+            }}
+          />
+
           <div
             style={{
-              textAlign: 'center',
-              padding: '32px',
-              backgroundColor: 'var(--bg-secondary)',
+              position: 'absolute',
+              top: '16px',
+              left: '16px',
+              padding: '8px 12px',
               borderRadius: '8px',
-              border: '1px solid var(--border-color)',
-              maxWidth: '460px',
+              backgroundColor: 'rgba(15, 23, 42, 0.8)',
+              border: '1px solid rgba(148, 163, 184, 0.35)',
+              color: 'var(--text-main)',
+              fontSize: '12px',
+              fontWeight: 600,
+              letterSpacing: '0.5px',
+              textTransform: 'uppercase',
             }}
           >
-            <h2 style={{ fontSize: '18px', marginBottom: '8px' }}>Viewport Canvas Area</h2>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Custom WebGL2 renderer will be integrated here in Milestone 2.
-            </p>
-            <div
-              style={{
-                fontSize: '12px',
-                padding: '8px 12px',
-                backgroundColor: 'var(--bg-tertiary)',
-                borderRadius: '6px',
-                display: 'inline-block',
-                fontFamily: 'monospace',
-                marginBottom: '12px',
-              }}
-            >
-              Engine-Core Test Vector: ({sampleVector.x}, {sampleVector.y})
-            </div>
+            Live WebGL2 Viewport
+          </div>
 
-            {/* Live Input Diagnostic Box */}
-            <div
-              style={{
-                padding: '12px',
-                backgroundColor: 'var(--bg-tertiary)',
-                borderRadius: '6px',
-                border: '1px solid var(--border-color)',
-                textAlign: 'left',
-                fontSize: '12px',
-              }}
-            >
-              <div style={{ fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
-                Input System Diagnostics (Active):
-              </div>
-              <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>
-                Mouse Position: <span style={{ color: 'var(--text-main)', fontFamily: 'monospace' }}>({mousePos.x}, {mousePos.y})</span>
-              </div>
-              <div style={{ color: 'var(--text-muted)' }}>
-                Held Keys:{' '}
-                {heldKeys.length > 0 ? (
-                  heldKeys.map((k) => (
-                    <span
-                      key={k}
-                      style={{
-                        padding: '2px 6px',
-                        backgroundColor: 'var(--accent-color)',
-                        color: '#fff',
-                        borderRadius: '3px',
-                        marginRight: '4px',
-                        fontFamily: 'monospace',
-                        fontSize: '11px',
-                      }}
-                    >
-                      {k}
-                    </span>
-                  ))
-                ) : (
-                  <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>None (press any key)</span>
-                )}
-              </div>
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '16px',
+              left: '16px',
+              right: '16px',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(180px, 1fr))',
+              gap: '12px',
+            }}
+          >
+            <div style={{ padding: '10px 12px', backgroundColor: 'rgba(15, 23, 42, 0.7)', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12px' }}>
+              <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>Input System Diagnostics</div>
+              <div style={{ color: 'var(--text-main)' }}>Mouse: ({mousePos.x}, {mousePos.y})</div>
+              <div style={{ color: 'var(--text-main)' }}>Held keys: {heldKeys.length > 0 ? heldKeys.join(', ') : 'None'}</div>
             </div>
-
-            {/* Live Transform Hierarchy Diagnostic Box */}
-            <div
-              style={{
-                marginTop: '12px',
-                padding: '12px',
-                backgroundColor: 'var(--bg-tertiary)',
-                borderRadius: '6px',
-                border: '1px solid var(--border-color)',
-                textAlign: 'left',
-                fontSize: '12px',
-              }}
-            >
-              <div style={{ fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
-                Transform2D Hierarchy & Matrix3 (Active):
-              </div>
-              <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>
-                Parent Rotation: <span style={{ color: 'var(--text-main)', fontFamily: 'monospace' }}>{((((parentTransform.rotation * 180 / Math.PI) % 360) + 360) % 360).toFixed(0)}°</span>
-              </div>
-              <div style={{ color: 'var(--text-muted)' }}>
-                Orbiting Child World Pos: <span style={{ color: 'var(--text-main)', fontFamily: 'monospace' }}>({childWorldPos.x}, {childWorldPos.y})</span>
-              </div>
+            <div style={{ padding: '10px 12px', backgroundColor: 'rgba(15, 23, 42, 0.7)', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12px' }}>
+              <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>Transform2D & Matrix3</div>
+              <div style={{ color: 'var(--text-main)' }}>Parent Rotation: {((((parentTransform.rotation * 180 / Math.PI) % 360) + 360) % 360).toFixed(0)}°</div>
+              <div style={{ color: 'var(--text-main)' }}>Child World Pos: ({childWorldPos.x}, {childWorldPos.y})</div>
             </div>
           </div>
         </main>
