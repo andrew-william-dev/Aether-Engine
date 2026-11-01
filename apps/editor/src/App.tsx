@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DomInputAdapter, ENGINE_NAME, ENGINE_VERSION, Engine, Vector2 } from '@aether/engine-core';
+import { DomInputAdapter, ENGINE_NAME, ENGINE_VERSION, Engine, Transform2D, Vector2 } from '@aether/engine-core';
 
 export const App: React.FC = () => {
   const [engine] = useState(() => new Engine({ name: 'Aether Editor Runtime' }));
@@ -10,6 +10,15 @@ export const App: React.FC = () => {
   const [heldKeys, setHeldKeys] = useState<string[]>([]);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [sampleVector] = useState(() => new Vector2(100, 200));
+
+  // Transform hierarchy demo instances
+  const [parentTransform] = useState(() => new Transform2D({ position: new Vector2(0, 0) }));
+  const [childTransform] = useState(() => {
+    const child = new Transform2D({ position: new Vector2(50, 0) });
+    parentTransform.addChild(child);
+    return child;
+  });
+  const [childWorldPos, setChildWorldPos] = useState({ x: '50.0', y: '0.0' });
 
   useEffect(() => {
     if (engine.state === 'uninitialized' || engine.state === 'stopped') {
@@ -28,6 +37,11 @@ export const App: React.FC = () => {
       setFps(engine.fps);
       setHeldKeys(engine.input.getHeldKeys());
       setMousePos({ x: Math.round(engine.input.mouseX), y: Math.round(engine.input.mouseY) });
+
+      // Rotate parent transform to demonstrate matrix propagation in real-time
+      parentTransform.rotate(dt * 1.5);
+      const worldPos = childTransform.transformPoint(Vector2.zero());
+      setChildWorldPos({ x: worldPos.x.toFixed(1), y: worldPos.y.toFixed(1) });
     });
 
     return () => {
@@ -37,7 +51,7 @@ export const App: React.FC = () => {
         engine.pause();
       }
     };
-  }, [engine]);
+  }, [engine, parentTransform, childTransform]);
 
   const toggleRun = () => {
     if (engine.state === 'running') {
@@ -247,6 +261,29 @@ export const App: React.FC = () => {
                 ) : (
                   <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>None (press any key)</span>
                 )}
+              </div>
+            </div>
+
+            {/* Live Transform Hierarchy Diagnostic Box */}
+            <div
+              style={{
+                marginTop: '12px',
+                padding: '12px',
+                backgroundColor: 'var(--bg-tertiary)',
+                borderRadius: '6px',
+                border: '1px solid var(--border-color)',
+                textAlign: 'left',
+                fontSize: '12px',
+              }}
+            >
+              <div style={{ fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                Transform2D Hierarchy & Matrix3 (Active):
+              </div>
+              <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>
+                Parent Rotation: <span style={{ color: 'var(--text-main)', fontFamily: 'monospace' }}>{(parentTransform.rotation * 180 / Math.PI).toFixed(0)}°</span>
+              </div>
+              <div style={{ color: 'var(--text-muted)' }}>
+                Orbiting Child World Pos: <span style={{ color: 'var(--text-main)', fontFamily: 'monospace' }}>({childWorldPos.x}, {childWorldPos.y})</span>
               </div>
             </div>
           </div>

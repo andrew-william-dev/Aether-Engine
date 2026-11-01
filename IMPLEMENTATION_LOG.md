@@ -234,3 +234,80 @@ Implement an input subsystem inside `packages/engine-core` that:
 - **TypeScript Typecheck**: 0 errors across all workspaces.
 - **Production Build**: Both `@aether/editor` and `@aether/engine-core` compile cleanly.
 - **Git State**: Ready to commit.
+
+---
+
+## [2026-11-01] — Milestone 2: 2D Math Foundation & Transform System
+
+### 1. Vision & Scope
+Build the complete pure-math foundation that every subsequent engine system (renderer, scene graph, physics) will depend upon:
+- **`MathUtils`**: Common numeric utilities and constants (clamping, lerp, angle conversion, epsilon comparison).
+- **`Vector2`** (extended): A complete 2D vector with static factories, geometric operations, and immutable transformation methods.
+- **`Matrix3`**: A column-major 3×3 affine transformation matrix stored as `Float32Array` for direct WebGL uniform upload.
+- **`Transform2D`**: A scene-graph node encapsulating position, rotation, scale, and pivot with a dirty-flag caching system for parent-child world matrix propagation.
+
+All four modules are strictly unit-tested and are free of any DOM, React, or platform-specific imports.
+
+---
+
+### 2. Features & Deliverables Added
+
+- **`packages/engine-core/src/math/math-utils.ts`**:
+  - Constants: `EPSILON`, `DEG_TO_RAD`, `RAD_TO_DEG`.
+  - Functions: `degToRad`, `radToDeg`, `clamp`, `lerp`, `approxEquals`, `normalizeAngle`.
+
+- **`packages/engine-core/src/math/vector2.ts`** (extended):
+  - Directional statics: `Vector2.up`, `Vector2.down`, `Vector2.left`, `Vector2.right`, `Vector2.fromAngle(radians)`.
+  - Immutable chaining operations: `multiply`, `divide`, `negate`, `rotate`, `lerp`, `perpendicular`.
+  - Geometric utilities: `cross`, `distance`, `distanceSquared`, `angle`, `angleTo`.
+  - Serialization: `toArray`, `fromArray`.
+
+- **`packages/engine-core/src/math/matrix3.ts`**:
+  - Internal layout: column-major `Float32Array(9)` matching WebGL2 `uniform mat3` memory layout.
+  - Factory statics: `Matrix3.translation`, `Matrix3.rotation`, `Matrix3.scaling`, `Matrix3.orthographic`.
+  - Mutation methods: `translate`, `rotate`, `scale`, `setTRS`.
+  - Algebra: `multiply`, `premultiply`, `determinant`, `invert`.
+  - Application: `transformPoint(v)`, `transformVector(v)`.
+  - Export: `toFloat32Array()`.
+
+- **`packages/engine-core/src/math/transform2d.ts`**:
+  - Properties: `position: Vector2`, `rotation: number` (radians), `scale: Vector2`, `pivot: Vector2`.
+  - Dirty-flag caching: `_isLocalDirty` / `_isWorldDirty` flags cleared by `getLocalMatrix()` / `getWorldMatrix()`.
+  - Parent-child linking: `setParent`, `addChild`, `removeChild`, `children` array.
+  - Dirty propagation: any mutation on a parent marks all descendants' `_isWorldDirty = true`.
+  - World-space utilities: `transformPoint(localPoint)`, `inverseTransformPoint(worldPoint)`.
+  - Inspection: `isLocalDirty`, `isWorldDirty`, `isDirty` (union of both flags).
+
+- **`packages/engine-core/src/math/index.ts`**: Exports all 4 math modules.
+
+- **`apps/editor/src/App.tsx`** (updated): Added live `Transform2D` hierarchy diagnostic in the editor viewport — a `parentTransform` rotating per frame with a `childTransform` parented at local offset `(50, 0)`, displaying real-time world position.
+
+- **`packages/engine-core/tests/`**: 4 new test files, 26 new tests:
+  - `math-utils.test.ts`: 6 tests for utilities and constants.
+  - `vector2.test.ts`: Extended with 8 tests for new geometric methods.
+  - `matrix3.test.ts`: 7 tests for column-major layout, TRS composition, inversion, and transforms.
+  - `transform2d.test.ts`: 5 tests for hierarchy propagation, dirty flags, and world-space transforms.
+
+---
+
+### 3. Issues Encountered & How They Were Resolved
+
+#### Issue 1: `setTRS` — Undefined `radians` Variable
+- **Symptom**: TypeScript compiled successfully but `Matrix3.setTRS` produced incorrect rotation matrices at runtime because `Math.sin` and `Math.cos` received `undefined`.
+- **Root Cause**: A copy-paste error in `matrix3.ts` — the line `const s = Math.sin(radians)` used a variable named `radians` that was never declared in that scope. The actual parameter was named `rotation`.
+- **Resolution**: Changed both lines to `Math.sin(rotation)` and `Math.cos(rotation)` to match the parameter name.
+- **Lesson**: TypeScript's strict mode catches type errors but not incorrect identifier names that happen to exist in a different scope (or `undefined` globals in non-strict JS contexts). Tests for specific numeric output are essential for math code — a type system alone is not sufficient.
+
+#### Issue 2: `isDirty` Still True After `getLocalMatrix()` in Tests
+- **Symptom**: A test called `transform.getLocalMatrix()` and then asserted `transform.isDirty === false`. The assertion failed because `isDirty` was still `true`.
+- **Root Cause**: `isDirty` was defined as `_isLocalDirty || _isWorldDirty`. Calling `getLocalMatrix()` clears `_isLocalDirty` but leaves `_isWorldDirty = true` (since the world matrix was never recomputed). The test assumed `isDirty` would fully be false after computing the local matrix alone.
+- **Resolution**: Split the single `isDirty` getter into two separate getters — `isLocalDirty` and `isWorldDirty` — and kept `isDirty` as their union. Updated the test to assert `isLocalDirty === false` after `getLocalMatrix()`, then call `getWorldMatrix()` and assert `isDirty === false` after both.
+- **Lesson**: Fine-grained observability properties (separate local vs. world dirty flags) make testing and debugging significantly easier than combined union flags. When a property has composite sub-conditions, expose each individually.
+
+---
+
+### 4. Current Status & Verification
+- **Unit Tests**: 53 / 53 tests passing across 7 test files.
+- **TypeScript Typecheck**: 0 errors across all workspaces.
+- **Production Build**: Both `@aether/editor` and `@aether/engine-core` compile cleanly with zero warnings.
+- **Git State**: Committed to `main` branch.

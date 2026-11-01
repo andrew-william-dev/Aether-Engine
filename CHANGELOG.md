@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **2D Math Foundation (`packages/engine-core`)**:
+  - `MathUtils`: `degToRad`, `radToDeg`, `clamp`, `lerp`, `approxEquals`, `normalizeAngle` utilities plus `EPSILON`, `DEG_TO_RAD`, `RAD_TO_DEG` constants.
+  - `Vector2` (extended): `fromAngle`, directional statics (`up`, `down`, `left`, `right`), `multiply`, `divide`, `negate`, `cross`, `distance`, `distanceSquared`, `angle`, `angleTo`, `rotate`, `perpendicular`, `lerp`, `toArray`, `fromArray`.
+  - `Matrix3`: 3×3 affine matrix (column-major `Float32Array`), factory statics (`translation`, `rotation`, `scaling`, `orthographic`), `multiply`, `premultiply`, `setTRS`, `translate`, `rotate`, `scale`, `determinant`, `invert`, `transformPoint`, `transformVector`, `toFloat32Array`.
+  - `Transform2D`: position/rotation/scale/pivot with dirty-flag caching, parent-child hierarchy, `getLocalMatrix`, `getWorldMatrix`, `transformPoint`, `inverseTransformPoint`, `isLocalDirty`, `isWorldDirty`, `isDirty`, `addChild`, `removeChild`.
 - **Input System (`packages/engine-core`)**:
   - Platform-independent `InputManager` tracking keyboard and mouse button states: down (held), pressed (just pressed this frame), released (just released this frame), and up.
   - Mouse position, per-frame movement delta, and wheel delta tracking.
@@ -16,13 +21,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Automatic frame transition cleanup at the end of each game loop tick (`loop.onPostTick()`).
   - Safe reset on pause, stop, dispose, and window blur to prevent stuck keys.
   - Full typing support with `Keys` constant and `MouseButton` enum.
-- **Editor Integration (`apps/editor`)**:
-  - Attached `DomInputAdapter` to engine input runtime.
-  - Added live input diagnostics in the editor viewport showing active mouse coordinates and currently held keys in real-time.
-- **Testing**:
-  - Added 9 unit tests covering key press/held/release transitions, rapid single-frame tap preservation, mouse buttons, coordinate deltas, DOM adapter event mapping, and engine lifecycle integration (total 27 passing tests).
-
-### Added
 - **Engine Lifecycle (`packages/engine-core`)**:
   - Full lifecycle state machine: `init()`, `start()`, `pause()`, `resume()`, `stop()`, and `dispose()`.
   - Disposed state protection preventing invalid lifecycle transitions.
@@ -36,8 +34,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Editor Integration (`apps/editor`)**:
   - Live frame metrics in status bar (State, Frame count, Delta time ms, FPS).
   - Interactive "Step Frame" debugging button.
+  - Attached `DomInputAdapter` to engine input runtime.
+  - Live input diagnostics in the editor viewport showing active mouse coordinates and currently held keys in real-time.
+  - Live `Transform2D` hierarchy diagnostic in viewport showing parent rotation and child world position.
 - **Testing**:
-  - Expanded test suite to 18 unit tests covering deterministic loop scheduling, delta time clamping, pause/resume behavior, and lifecycle errors.
+  - Expanded test suite to 53 unit tests across 7 test files (engine lifecycle, game loop, input, math utilities, Vector2, Matrix3, Transform2D).
 
 ## [0.1.0] - 2026-11-01
 

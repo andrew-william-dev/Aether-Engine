@@ -219,3 +219,141 @@ stateDiagram-v2
     Released --> Up : endFrame()
     note right of Up : isKeyReleased() = false<br/>isKeyDown() = false (Frame N+1 onwards)
 ```
+
+
+---
+
+## 6. Math Foundation & Transform Hierarchy
+
+All rendering, physics, and scene graph systems in Aether Engine are built on four pure-math modules in `packages/engine-core/src/math/`. Every class is immutable-friendly, strictly typed, and accompanied by unit tests.
+
+### Class Overview
+
+```mermaid
+classDiagram
+    class MathUtils {
+        +EPSILON number$
+        +DEG_TO_RAD number$
+        +RAD_TO_DEG number$
+        +degToRad(deg) number$
+        +radToDeg(rad) number$
+        +clamp(v, min, max) number$
+        +lerp(a, b, t) number$
+        +approxEquals(a, b, eps?) boolean$
+        +normalizeAngle(rad) number$
+    }
+
+    class Vector2 {
+        +x number
+        +y number
+        +zero() Vector2$
+        +one() Vector2$
+        +up() Vector2$
+        +down() Vector2$
+        +left() Vector2$
+        +right() Vector2$
+        +fromAngle(rad) Vector2$
+        +add(v) Vector2
+        +sub(v) Vector2
+        +multiply(v) Vector2
+        +divide(v) Vector2
+        +scale(s) Vector2
+        +negate() Vector2
+        +dot(v) number
+        +cross(v) number
+        +length() number
+        +normalize() Vector2
+        +distance(v) number
+        +angle() number
+        +angleTo(v) number
+        +rotate(rad) Vector2
+        +perpendicular() Vector2
+        +lerp(v, t) Vector2
+        +toArray() number[]
+    }
+
+    class Matrix3 {
+        -Float32Array _elements
+        +identity() Matrix3$
+        +translation(tx, ty) Matrix3$
+        +rotation(rad) Matrix3$
+        +scaling(sx, sy) Matrix3$
+        +orthographic(w, h) Matrix3$
+        +multiply(m) Matrix3
+        +premultiply(m) Matrix3
+        +setTRS(tx, ty, rot, sx, sy) Matrix3
+        +translate(tx, ty) Matrix3
+        +rotate(rad) Matrix3
+        +scale(sx, sy) Matrix3
+        +determinant() number
+        +invert() Matrix3
+        +transformPoint(v) Vector2
+        +transformVector(v) Vector2
+        +toFloat32Array() Float32Array
+    }
+
+    class Transform2D {
+        +position Vector2
+        +rotation number
+        +scale Vector2
+        +pivot Vector2
+        +parent Transform2D?
+        +children Transform2D[]
+        +isLocalDirty boolean
+        +isWorldDirty boolean
+        +isDirty boolean
+        +getLocalMatrix() Matrix3
+        +getWorldMatrix() Matrix3
+        +transformPoint(localPt) Vector2
+        +inverseTransformPoint(worldPt) Vector2
+        +setParent(parent?) void
+        +addChild(child) void
+        +removeChild(child) void
+        +markDirty() void
+    }
+
+    Transform2D --> Matrix3 : builds via
+    Transform2D --> Vector2 : stores position/scale/pivot
+    Matrix3 --> Vector2 : transforms
+    Transform2D "1" o-- "0..*" Transform2D : parent / children
+```
+
+### Dirty-Flag Caching Lifecycle
+
+The `Transform2D` uses a two-level dirty cache to avoid redundant matrix recomputation in large hierarchies:
+
+```mermaid
+flowchart TD
+    Mutate["Mutate position / rotation / scale / pivot"]
+    MarkLocal["Set _isLocalDirty = true"]
+    PropagateWorld["Set _isWorldDirty = true\n on self and all descendants"]
+    QueryLocal["getLocalMatrix()"]
+    RebuildLocal["Recompute local TRS Matrix3\nClear _isLocalDirty"]
+    QueryWorld["getWorldMatrix()"]
+    HasParent{"parent?"}
+    ParentWorld["parent.getWorldMatrix()"]
+    Compose["Compose: parent.world × local\nClear _isWorldDirty"]
+    ReturnLocal["Return cached local matrix"]
+    ReturnWorld["Return composed world matrix"]
+
+    Mutate --> MarkLocal --> PropagateWorld
+    QueryLocal --> RebuildLocal --> ReturnLocal
+    QueryWorld --> HasParent
+    HasParent -->|"Yes"| ParentWorld --> Compose --> ReturnWorld
+    HasParent -->|"No"| RebuildLocal --> ReturnWorld
+```
+
+### Column-Major Matrix3 Memory Layout
+
+`Matrix3` stores its 9 elements in a `Float32Array` using **column-major order** — the same layout WebGL2 expects for `uniform mat3`. This allows the array to be uploaded directly via `gl.uniformMatrix3fv` with no transpositional overhead:
+
+```
+Index:   [0]  [3]  [6]
+         [1]  [4]  [7]
+         [2]  [5]  [8]
+
+For a translation matrix (tx, ty):
+  [1]  [0]  [tx]      stored as: [1, 0, 0,  0, 1, 0,  tx, ty, 1]
+  [0]  [1]  [ty]
+  [0]  [0]  [ 1]
+```
