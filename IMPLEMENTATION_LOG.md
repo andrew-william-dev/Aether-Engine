@@ -425,3 +425,58 @@ Create the first renderer package for Aether Engine, establishing the GPU bounda
 - **Production Build**: All workspaces compile successfully, including the newly exported `@aether/renderer` package.
 - **Git State**: Ready for the next milestone: scene graph + entity hierarchy integration.
 
+---
+
+## [2026-11-01] — Interactive Renderer Preview Using the Supplied Asset Pack
+
+### 1. Vision & Scope
+Make the renderer verifiable in the editor with real artwork and basic playable behavior, using the asset pack supplied in the repository rather than synthetic demo rectangles:
+- Load a small, licensed asset subset into WebGL textures.
+- Render a composed platformer scene through `Camera2D` and `SpriteBatch`.
+- Add keyboard movement, jumping, landing, animated movement frames, and collectible feedback.
+- Ensure texture assets are included in both development and production builds.
+
+### 2. Features & Deliverables Added
+- **Editor preview (`apps/editor/src/App.tsx`)**:
+  - Loads Kenney’s green character idle and walk frames, a solid-sky backdrop, grass terrain, and gold coin assets into GPU textures.
+  - Draws the sky, tiled ground, raised platform, coins, and character in ordered sprite batches.
+  - Supports A/D and left/right movement, Space/W/Up jumping, gravity, landing on the ground and raised platform, and coin collection.
+  - Shows movement instructions, texture load state, player position, held keys, and coin count in the viewport and inspector.
+  - Resizes the camera with the canvas and releases observer, input, and GPU resources when the editor unmounts.
+- **Bundled asset subset (`apps/editor/src/assets/kenney/`)**:
+  - Includes only the seven selected SVG files used by the preview plus the pack’s CC0 license.
+  - Retains the full user-provided pack in the repository’s top-level `assets/platformer_assets/` folder without requiring the whole pack in the editor bundle.
+- **Renderer (`packages/renderer/src/batch/SpriteBatch.ts`, `packages/renderer/src/camera/Camera2D.ts`)**:
+  - Corrects sprite UV orientation to render top-left-origin image assets upright.
+  - Makes camera screen/world conversions use top-left-origin pixel coordinates and centers camera position in the viewport.
+- **Tests and usage docs**:
+  - Adds three `Camera2D` tests for camera center, zoomed round-tripping, and viewport resize.
+  - Documents preview controls in the README and changes the changelog.
+
+### 3. Issues Encountered & How They Were Resolved
+
+#### Issue 1: Art-Pack Files Outside the Editor Were Not Bundled for Production
+- **Symptom**: Vite emitted the character files but not art referenced from the repository-level `assets/platformer_assets/` directory, which made those URLs dependent on the dev server’s filesystem access.
+- **Root Cause**: Those files were outside the editor source module graph, so Vite did not treat them as production assets.
+- **Resolution**: Copied only the seven used SVG assets and CC0 license into `apps/editor/src/assets/kenney/` and referenced them through `new URL(..., import.meta.url)`. The build now emits hashed asset files.
+
+#### Issue 2: Sprites and Tiles Were Vertically Inverted
+- **Symptom**: The grass tiles appeared upside down and the hills occupied the top of the scene.
+- **Root Cause**: SpriteBatch mapped local top vertices to the wrong side of DOM-loaded textures even though world Y and source images both use a top-left origin.
+- **Resolution**: Corrected the quad UVs so the top-left world corner samples the source image’s top-left, and validated the result in the editor browser preview.
+
+#### Issue 3: Hills Background Did Not Fit the Editor Viewport
+- **Symptom**: The hills artwork stretched awkwardly in the tall editor viewport and competed with the foreground.
+- **Root Cause**: A decorative landscape asset was scaled to fill a viewport with a different aspect ratio.
+- **Resolution**: Replaced it with the pack’s solid-sky background, keeping the platform and terrain assets as the foreground.
+
+#### Issue 4: Camera Pixel Conversion Did Not Match the Rendered Viewport
+- **Symptom**: Camera world/screen helper methods returned normalized device coordinates rather than screen pixels, and camera position was applied relative to the wrong viewport anchor.
+- **Root Cause**: The helpers passed pixel coordinates directly to a matrix that maps world positions to NDC, and the view transform applied a center-and-back translation not reflected in the intended camera semantics.
+- **Resolution**: Convert between top-left-origin viewport pixels and NDC at the camera boundary, use a camera-centered view transform, and add tests covering center mapping, zoom, round-trip conversion, and resize.
+
+### 4. Current Status & Verification
+- **Unit Tests**: 56 / 56 tests passing across 8 files.
+- **TypeScript Typecheck**: 0 errors across all workspaces.
+- **Production Build**: All workspaces compile; Vite bundles the selected SVGs, emitting larger assets as hashed files and inlining smaller ones.
+- **Browser Preview**: Verified on the editor at `http://localhost:3000`; supplied artwork loads and the viewport renders via WebGL2.

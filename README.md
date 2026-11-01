@@ -96,6 +96,12 @@ npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+The editor viewport includes an interactive platformer preview using a small selection of the bundled Kenney New Platformer Pack (CC0):
+- Click **Play**, then use **A/D** or the **left/right arrow keys** to move.
+- Press **Space**, **W**, or **Up Arrow** to jump onto the raised platform.
+- Collect the two gold coins and watch the counter update.
+- Use **Pause** and **Step Frame** to inspect the engine one frame at a time.
+
 ### 3. Run Tests
 ```bash
 # Single test run

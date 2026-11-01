@@ -44,6 +44,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `Texture2D` and `TextureLoader`: GPU texture creation and image uploads for sprite assets.
   - `SpriteBatch`: CPU-side quad batching system with a shared VAO/VBO/IBO and draw-call aggregation.
   - Package-level exports via `@aether/renderer` and workspace integration into the editor application.
+- **Interactive Renderer Preview (`apps/editor`)**:
+  - Uses bundled Kenney New Platformer Pack (CC0) assets for a green adventurer with idle/walk animation, a sky backdrop, grass terrain, and gold coins.
+  - Adds keyboard-controlled horizontal movement, jumping, gravity, platform/ground landing, and coin collection to the live WebGL2 viewport.
+  - Adds a compact asset subset and its CC0 license to the editor source so Vite includes every texture in production builds.
+  - Corrects sprite UV orientation for top-left-origin images and camera center mapping; adds world/screen conversion tests for viewport dimensions and zoom.
 - **Testing**:
   - Expanded test suite to 53 unit tests across 7 test files (engine lifecycle, game loop, input, math utilities, Vector2, Matrix3, Transform2D).
 

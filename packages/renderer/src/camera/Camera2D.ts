@@ -72,7 +72,7 @@ export class Camera2D {
    *
    * The matrix chain is:
    *   projection = orthographic(0, width, height, 0)    — Y axis points down (screen space)
-   *   view       = scale(zoom, zoom) × translate(-camX, -camY)
+   *   view       = translate(viewportCenter) × scale(zoom) × translate(-camX, -camY)
    *   viewProj   = projection × view
    */
   getViewProjectionMatrix(): Matrix3 {
@@ -84,19 +84,28 @@ export class Camera2D {
   }
 
   /**
-   * Converts a world-space position to screen-space pixel coordinates.
+   * Converts a world-space position to top-left-origin screen pixels.
    */
   worldToScreen(worldPos: Vector2, out = new Vector2()): Vector2 {
-    return this.getViewProjectionMatrix().transformPoint(worldPos, out);
+    this.getViewProjectionMatrix().transformPoint(worldPos, out);
+    out.x = ((out.x + 1) * this._viewportWidth) / 2;
+    out.y = ((1 - out.y) * this._viewportHeight) / 2;
+    return out;
   }
 
   /**
-   * Converts screen-space pixel coordinates to a world-space position.
+   * Converts top-left-origin screen pixels to a world-space position.
    */
   screenToWorld(screenPos: Vector2, out = new Vector2()): Vector2 {
+    out.set(
+      (screenPos.x / this._viewportWidth) * 2 - 1,
+      1 - (screenPos.y / this._viewportHeight) * 2
+    );
     const inv = this.getViewProjectionMatrix().clone();
-    inv.invert();
-    return inv.transformPoint(screenPos, out);
+    if (!inv.invert()) {
+      throw new Error('[Camera2D] View-projection matrix is not invertible.');
+    }
+    return inv.transformPoint(out, out);
   }
 
   private _rebuild(): void {
@@ -109,17 +118,14 @@ export class Camera2D {
       0
     );
 
-    // View: translate by -camera position, then scale by zoom.
-    // Zoom is applied relative to the viewport center.
+    // View: center the camera's world position in the viewport, then apply zoom.
     const halfW = this._viewportWidth / 2;
     const halfH = this._viewportHeight / 2;
 
-    // Compose: translate to center, scale (zoom), translate back, then move by -camPos
-    // Equivalent to: T(halfW, halfH) × S(zoom) × T(-halfW, -halfH) × T(-camX, -camY)
+    // Compose: T(viewportCenter) × S(zoom) × T(-cameraPosition)
     const view = Matrix3.identity()
       .translate(halfW, halfH)
       .scale(this.zoom, this.zoom)
-      .translate(-halfW, -halfH)
       .translate(-this.position.x, -this.position.y);
 
     // viewProj = projection × view

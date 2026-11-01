@@ -254,12 +254,12 @@ export class SpriteBatch {
     const [u0, v0, u1, v1] = uvRect;
 
     // Unit quad corners (local space, centered at origin)
-    // Bottom-left, Bottom-right, Top-right, Top-left
+    // Top-left, Top-right, Bottom-right, Bottom-left (world Y points down)
     const corners: [number, number, number, number][] = [
-      [-0.5, -0.5, u0, v1],
-      [ 0.5, -0.5, u1, v1],
-      [ 0.5,  0.5, u1, v0],
-      [-0.5,  0.5, u0, v0],
+      [-0.5, -0.5, u0, v0],
+      [ 0.5, -0.5, u1, v0],
+      [ 0.5,  0.5, u1, v1],
+      [-0.5,  0.5, u0, v1],
     ];
 
     const base = this._quadCount * VERTICES_PER_QUAD * FLOATS_PER_VERTEX;
